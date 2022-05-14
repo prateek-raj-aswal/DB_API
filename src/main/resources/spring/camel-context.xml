@@ -1,0 +1,531 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:camel="http://camel.apache.org/schema/spring"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+    xsi:schemaLocation="http://www.springframework.org/schema/beans 
+    http://www.springframework.org/schema/beans/spring-beans.xsd http://camel.apache.org/schema/spring 
+    http://camel.apache.org/schema/spring/camel-spring.xsd http://cxf.apache.org/core http://cxf.apache.org/schemas/core.xsd">
+   
+    <bean class="org.apache.commons.dbcp.BasicDataSource" id="dataStore">
+        <property name="driverClassName" value="org.postgresql.Driver"/>
+        <property name="url" value="${db_url}"/>
+        <property name="username" value="${db_username}"/>
+        <property name="password" value="${db_password}"/>
+        <property name="maxWait" value="${db_maxWait}"/>
+    </bean>
+
+    <bean class="org.apache.commons.dbcp.BasicDataSource" id="loan2Process">
+        <property name="driverClassName" value="org.postgresql.Driver"/>
+        <property name="url" value="${db_urlBankDetails}"/>
+        <property name="username" value="${db_username}"/>
+        <property name="password" value="${db_password}"/>
+        <property name="maxWait" value="${db_maxWait}"/>
+    </bean>
+    
+    <bean class="com.example.Processing" id="process">
+        <property name="dataSource" ref="dataStore"/>
+        
+    </bean>
+
+    <bean class="com.example.Approver" id="Approver">
+        <property name="dataSource" ref="loan2Process"/>
+    </bean>
+    
+    <camelContext id="LoanApproval_db_Context" xmlns="http://camel.apache.org/schema/spring" streamCache="true" >
+        <dataFormats>
+		   <json id="jsonOrder" library="Jackson"/>
+		</dataFormats>
+		
+        <restConfiguration 
+            component="jetty" 
+            host="0.0.0.0" 
+            port="8501"
+            bindingMode="json"
+            enableCORS="true" contextPath="/api/v1">
+	    <apiProperty key="Access-Control-Allow-Origin" value="*"/>
+            <apiProperty key="Access-Control-Allow-Headers" value="Origin, Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers, Authorization"/>
+        </restConfiguration>
+
+        <rest id="SSO API">	
+            <post uri="/getBorrowerApplication">
+                <route id="Select_borrower_application_details_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS}"/>
+        
+		                <bean ref="process" method="getBorrowerApplication"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <!-- <marshal ref="jsonOrder"/> -->
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+
+            <post uri="/getBorrowerApplicationLoanExec">
+                <route id="Select_borrower_application_details_loanExec_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS}"/>
+        
+		                <bean ref="process" method="getBorrowerApplicationLoanExec"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <!-- <marshal ref="jsonOrder"/> -->
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+
+            <post uri="/insertBorrowerApplicationEligible">
+                <route id="Insert_borrower_application_details_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="process" method="SubmitBorrowerApplicationEligible"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+
+            <post uri="/insertBorrowerApplicationNotEligible">
+                <route id="Insert_borrower_application_details_failure_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="process" method="SubmitBorrowerApplicationNotEligible"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+
+            <post uri="/updateBorrowerApplication">
+                <route id="Update_borrower_application_details_route">
+                     <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS}"/>
+        
+		                <bean ref="process" method="UpdateBorrowerApplication"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>      
+    	        </route>
+            </post>
+
+	        <post uri="/insertBorrowerFeeDocumentDetails">
+                <route id="Insert_Borrower_Fee_Document_Details">
+                     <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="Approver" method="insertBorrower_Fee_Document_Details"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>      
+    	        </route>
+            </post>
+
+            <post uri="/insertBorrowerLoanApprovalApprovedDetails">
+                <route id="Insert_borrower_loan_approval_details_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="Approver" method="insertBorrowerLoanApprovalApprovedDetails"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+            <post uri="/insertBorrowerLoanApprovalRejectedDetails">
+                <route id="Insert_borrower_loan_approval_rejected_details_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="Approver" method="insertBorrowerLoanApprovalRejectedDetails"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+            <post uri="/updateBorrower_Fee_Document_DetailsPaymentDone">
+                <route id="Update_Borrower_Fee_Document_Details_Payment_Done_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="Approver" method="updateBorrower_Fee_Document_DetailsPaymentDone"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+            <post uri="/updateBorrower_Fee_Document_DetailsPaymentExpired">
+                <route id="Update_Borrower_Fee_Document_Details_Payment_Expired_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="Approver" method="updateBorrower_Fee_Document_DetailsPaymentExpired"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+            <post uri="/updateBorrower_Fee_Document_DetailsUploadDocuments">
+                <route id="Update_Borrower_Fee_Document_Details_UploadDocuments_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="Approver" method="updateBorrower_Fee_Document_DetailsUploadDocuments"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+            <post uri="/getBorrower_Fee_Document_Details">
+                <route id="Get_Borrower_Fee_Document_Details_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="Approver" method="getBorrower_Fee_Document_Details"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+            <post uri="/insertBorrower_RiskAssessment_Verification">
+                <route id="Insert_Borrower_RiskAssessment_Verification_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="Approver" method="insertBorrower_RiskAssessment_Verification"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+            <post uri="/updateBorrower_RiskAssessment_Verification">
+                <route id="Update_Borrower_RiskAssessment_Verification">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="Approver" method="updateBorrower_RiskAssessment_Verification"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+
+	    <post uri="/getBorrower_RiskAssessment_Verification">
+                <route id="Get_Borrower_RiskAssessment_Verification">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+
+                                <bean ref="Approver" method="getBorrower_RiskAssessment_Verification"/>
+                                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+                                    <doCatch>
+                                <exception>java.lang.Exception</exception>
+                                <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                                    </doCatch>
+                        </doTry>
+                </route>
+            </post>
+
+
+            <post uri="/getCIBILScore">
+                <route id="Get_CIBIL_Score_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="Approver" method="getCIBILScore"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+            <post uri="/insertBorrower_LoanApproved_DetailsApproved">
+                <route id="insert_Borrower_LoanApproved_Details_Approved_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="Approver" method="insertBorrower_LoanApproved_DetailsApproved"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+            <post uri="/insertBorrower_LoanApproved_DetailsRejected">
+                <route id="insert_Borrower_LoanApproved_Details_Rejected_route">
+                    <doTry>
+                        <log message="Hit Received at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+        
+		                <bean ref="Approver" method="insertBorrower_LoanApproved_DetailsRejected"/>
+		                <!-- <marshal ref="jsonOrder"/> -->
+                        <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                        <log message="Hit Processed at ${date:now:yyyy-MM-dd'T'HH:mm:ss:SSS} ${body}"/>
+                        <doCatch>
+                            <exception>java.lang.RuntimeException</exception>
+                            <removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+                        </doCatch>
+			            <doCatch>
+          	            	<exception>java.lang.Exception</exception>
+        	            	<removeHeaders pattern="*"/>
+                            <setHeader headerName="Content-Type"><simple>application/json</simple></setHeader>
+                            <setBody><simple>{"Status":"Failed","Messaage":"${exception.message}"}</simple></setBody>
+                            <setHeader headerName="CamelRestletResponse"><simple>${body}</simple></setHeader>
+			            </doCatch>
+     		        </doTry>        
+    	        </route>
+            </post>
+        </rest>
+    </camelContext>
+</beans>
